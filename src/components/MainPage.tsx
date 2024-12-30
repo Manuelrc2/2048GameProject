@@ -11,6 +11,11 @@ import {
   checkIfGameIsOver,
 } from "../utils";
 import GameOverScreen from "./GameOverScreen";
+import SettingsIcon from "@mui/icons-material/Settings";
+import SettingsDialog from "./SettingsDialog";
+import UndoIcon from "@mui/icons-material/Undo";
+import AbilitiesBox from "./AbilitiesBox";
+import { Ability } from "./AbilityCell";
 
 export enum Key {
   UP = "UP",
@@ -18,18 +23,39 @@ export enum Key {
   LEFT = "LEFT",
   RIGHT = "RIGHT",
 }
+export type DimensionsType = 4 | 5 | 6;
+type BoardHistory = {
+  board: string;
+  score: number;
+};
 
-const DIMENSIONS = 3;
 const MainPage: FC = () => {
+  const [dimensions, setDimensions] = useState<DimensionsType>(4);
   const [board, setBoard] = useState<CellType[][]>([]);
+  const [boardHistory, setBoardHistory] = useState<BoardHistory[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [keyPressed, setKeyPressed] = useState<Key>();
   const [counter, setCounter] = useState<number>(0);
+  const [boardCounter, setBoardCounter] = useState<number>(0);
   const [resetClicked, setResetClicked] = useState<boolean>(true);
   const [gameOver, setGameOver] = useState<boolean>(false);
+  const [settingsDialogOpened, setSettingsDialogOpened] =
+    useState<boolean>(false);
+  const [undosCount, setUndosCount] = useState<number>(0);
+  const [selectedAbilities, setSelectedAbilities] = useState<Ability[]>();
+
+  const registerNewHistoryEntry = (newHistoryEntry: BoardHistory) =>
+    setHistoryIndex((prevHistoryIndex) => {
+      setBoardHistory((prevBoardHistory) => [
+        ...prevBoardHistory.slice(0, prevHistoryIndex + 1),
+        newHistoryEntry,
+      ]);
+      return prevHistoryIndex + 1;
+    });
   useEffect(() => {
     const initiateBoard = () => {
-      const structureArray = Array.from({ length: DIMENSIONS }, () =>
-        Array(DIMENSIONS).fill(0)
+      const structureArray = Array.from({ length: dimensions }, () =>
+        Array(dimensions).fill(0)
       );
       const initialBoard = structureArray.map((row, rowIndex) =>
         row.map((cell, columnIndex) => ({
@@ -40,14 +66,18 @@ const MainPage: FC = () => {
       );
       new Array(2)
         .fill(0)
-        .forEach((e) => addRandomCell(initialBoard, DIMENSIONS));
+        .forEach((e) => addRandomCell(initialBoard, dimensions));
       setBoard(initialBoard);
       setCounter(0);
+      setBoardCounter(0);
+      setBoardHistory([{ board: JSON.stringify(initialBoard), score: 0 }]);
+      setHistoryIndex(0);
+      setUndosCount(0);
       setGameOver(false);
       setResetClicked(false);
     };
-    resetClicked && initiateBoard();
-  }, [resetClicked]);
+    (resetClicked || dimensions) && initiateBoard();
+  }, [resetClicked, dimensions]);
   useEffect(() => {
     function handleKeyPressed(this: Window, event: KeyboardEvent) {
       switch (event.key) {
@@ -76,7 +106,6 @@ const MainPage: FC = () => {
       window.removeEventListener("keydown", handleKeyPressed);
     };
   }, []);
-
   useEffect(() => {
     const moveBoard = (prevBoard: CellType[][]) => {
       let newBoard: CellType[][] = [];
@@ -130,9 +159,24 @@ const MainPage: FC = () => {
           }));
         });
       }
-      hasBoardChanged(prevBoard, newBoard) &&
-        addRandomCell(newBoard, DIMENSIONS);
-      setCounter((prevState) => prevState + totalScoreIncrement);
+      if (hasBoardChanged(prevBoard, newBoard)) {
+        addRandomCell(newBoard, dimensions);
+        setBoardCounter((prevCount) => {
+          const newCount = prevCount + totalScoreIncrement;
+          const newHistoryEntry = {
+            board: JSON.stringify(newBoard),
+            score: newCount,
+          };
+          setHistoryIndex((prevHistoryIndex) => {
+            setBoardHistory((prevBoardHistory) => [
+              ...prevBoardHistory.slice(0, prevHistoryIndex + 1),
+              newHistoryEntry,
+            ]);
+            return prevHistoryIndex + 1;
+          });
+          return newCount;
+        });
+      }
       return newBoard;
     };
     keyPressed && setBoard((prevState) => moveBoard(prevState));
@@ -142,31 +186,84 @@ const MainPage: FC = () => {
   useEffect(() => {
     board.length > 0 && checkIfGameIsOver(board) && setGameOver(true);
   }, [board]);
+  useEffect(() => {
+    setCounter(boardCounter - undosCount * 100);
+  }, [boardCounter, undosCount]);
 
   return (
     <Grid2
       container
-      direction="column"
+      direction="row"
       justifyContent="center"
       alignItems="center"
-      height="100vh"
-      spacing={2}
+      spacing={4}
     >
-      <Typography>{gameOver && "GAME OVER"}</Typography>
-      <Counter counter={counter} />
-      <Board board={board} />
-      {gameOver && <GameOverScreen />}
-      <Button
-        sx={{
-          boxShadow: 5,
-          width: "20vh",
-          color: "white",
-          backgroundColor: "#cd6155",
-        }}
-        onClick={() => setResetClicked(true)}
+      <Grid2
+        container
+        direction="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+        spacing={2}
       >
-        RESET
-      </Button>
+        <Button onClick={() => setSettingsDialogOpened(true)}>
+          <SettingsIcon sx={{ color: "#454545" }} />
+        </Button>
+        <SettingsDialog
+          open={settingsDialogOpened}
+          onClose={() => setSettingsDialogOpened(false)}
+          dimensionsState={[dimensions, setDimensions]}
+        />
+      </Grid2>
+      <Grid2
+        container
+        direction="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+        spacing={2}
+      >
+        <Counter counter={counter} />
+        <Board board={board} />
+        {gameOver && <GameOverScreen />}
+        <Button
+          sx={{
+            boxShadow: 5,
+            width: "20vh",
+            color: "white",
+            backgroundColor: "#cd6155",
+          }}
+          onClick={() => setResetClicked(true)}
+        >
+          RESET
+        </Button>
+      </Grid2>
+      <Grid2
+        container
+        direction="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+        spacing={2}
+      >
+        <Button
+          disabled={historyIndex === 0}
+          onClick={() => {
+            setHistoryIndex((prevHistoryIndex) => {
+              const previousBoard = boardHistory[prevHistoryIndex - 1];
+              setBoard(JSON.parse(previousBoard.board));
+              setBoardCounter(previousBoard.score);
+              return prevHistoryIndex - 1;
+            });
+            setUndosCount((prevState) => prevState + 1);
+          }}
+          sx={{ height: "10vh" }}
+        >
+          <UndoIcon sx={{ color: "#454545" }} />
+        </Button>
+        <AbilitiesBox boardState={[board, setBoard]} />
+        <Button>MORE</Button>
+      </Grid2>
     </Grid2>
   );
 };
