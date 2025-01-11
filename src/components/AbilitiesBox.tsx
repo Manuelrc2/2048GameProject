@@ -1,14 +1,20 @@
 import { Grid2 } from "@mui/material";
 import { FC } from "react";
-import AbilityCell, { AbilityActionParam } from "./AbilityCell";
-import { CellType } from "./Cell";
+import AbilityCell, { BoardStateType } from "./AbilityCell";
 import { abilities } from "../Abilities";
+import { RegisterNewHistoryEntryFunction } from "./MainPage";
 
 type AbilitiesBoxProps = {
-  boardState: AbilityActionParam;
+  boardState: BoardStateType;
+  registerNewHistoryEntry: RegisterNewHistoryEntryFunction;
+  setAbilitiesUsedCount: React.Dispatch<React.SetStateAction<number>>;
 };
 
-const AbilitiesBox: FC<AbilitiesBoxProps> = ({ boardState }) => {
+const AbilitiesBox: FC<AbilitiesBoxProps> = ({
+  boardState,
+  registerNewHistoryEntry,
+  setAbilitiesUsedCount,
+}) => {
   return (
     <Grid2
       container
@@ -20,7 +26,12 @@ const AbilitiesBox: FC<AbilitiesBoxProps> = ({ boardState }) => {
       sx={{ backgroundColor: "lightgrey" }}
     >
       {abilities.map((ability) => (
-        <AbilityCell ability={ability} boardState={boardState} />
+        <AbilityCell
+          ability={ability}
+          boardState={boardState}
+          registerNewHistoryEntry={registerNewHistoryEntry}
+          setAbilitiesUsedCount={setAbilitiesUsedCount}
+        />
       ))}
     </Grid2>
   );

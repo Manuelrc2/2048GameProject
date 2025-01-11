@@ -1,7 +1,15 @@
-import { AbilityActionParam, Ability } from "./components/AbilityCell";
-import { CellType } from "./components/Cell";
+import { Ability, BoardStateType } from "./components/AbilityCell";
+import { RegisterNewHistoryEntryFunction } from "./components/MainPage";
 
-const shuffle = ([board, setBoard]: AbilityActionParam) => {
+export type AbilityActionParamsType = {
+  boardState: BoardStateType;
+  registerNewHistoryEntry: RegisterNewHistoryEntryFunction;
+};
+
+const shuffle = ({
+  boardState: [board, setBoard],
+  registerNewHistoryEntry,
+}: AbilityActionParamsType) => {
   const boardCopy = board.map((row) => row.map((cell) => ({ ...cell })));
   const boardValues: number[] = [];
   boardCopy.forEach((row) =>
@@ -14,11 +22,14 @@ const shuffle = ([board, setBoard]: AbilityActionParam) => {
         value)
   );
   setBoard(boardCopy);
+  registerNewHistoryEntry(boardCopy);
 };
+
 export const abilities: Ability[] = [
   {
     imageUrl: "./AbilitiesLogos/shuffle.png",
-    altText: "shuffle",
+    info: "With the use of this ability you will shuffle the whole board randomly",
+    cost: 100,
     action: shuffle,
   },
 ];
