@@ -1,5 +1,5 @@
-import { Button, Grid2, Typography } from "@mui/material";
-import { FC, useEffect, useState } from "react";
+import { Button, Grid2 } from "@mui/material";
+import { FC, useCallback, useEffect, useState } from "react";
 import Board from "./Board";
 import Counter from "./Counter";
 import { CellType } from "./Cell";
@@ -28,6 +28,10 @@ type BoardHistory = {
   board: string;
   score: number;
 };
+export type RegisterNewHistoryEntryFunction = (
+  newBoard: CellType[][],
+  newCount?: number
+) => void;
 
 const MainPage: FC = () => {
   const [dimensions, setDimensions] = useState<DimensionsType>(4);
@@ -43,15 +47,24 @@ const MainPage: FC = () => {
     useState<boolean>(false);
   const [undosCount, setUndosCount] = useState<number>(0);
   const [selectedAbilities, setSelectedAbilities] = useState<Ability[]>();
+  const [abilitiesUsedCount, setAbilitiesUsedCount] = useState<number>(0);
 
-  const registerNewHistoryEntry = (newHistoryEntry: BoardHistory) =>
-    setHistoryIndex((prevHistoryIndex) => {
-      setBoardHistory((prevBoardHistory) => [
-        ...prevBoardHistory.slice(0, prevHistoryIndex + 1),
-        newHistoryEntry,
-      ]);
-      return prevHistoryIndex + 1;
-    });
+  const registerNewHistoryEntry = useCallback(
+    (newBoard: CellType[][], newCount: number = boardCounter) => {
+      const newHistoryEntry = {
+        board: JSON.stringify(newBoard),
+        score: newCount,
+      };
+      setHistoryIndex((prevHistoryIndex) => {
+        setBoardHistory((prevBoardHistory) => [
+          ...prevBoardHistory.slice(0, prevHistoryIndex + 1),
+          newHistoryEntry,
+        ]);
+        return prevHistoryIndex + 1;
+      });
+    },
+    [boardCounter]
+  );
   useEffect(() => {
     const initiateBoard = () => {
       const structureArray = Array.from({ length: dimensions }, () =>
@@ -163,17 +176,7 @@ const MainPage: FC = () => {
         addRandomCell(newBoard, dimensions);
         setBoardCounter((prevCount) => {
           const newCount = prevCount + totalScoreIncrement;
-          const newHistoryEntry = {
-            board: JSON.stringify(newBoard),
-            score: newCount,
-          };
-          setHistoryIndex((prevHistoryIndex) => {
-            setBoardHistory((prevBoardHistory) => [
-              ...prevBoardHistory.slice(0, prevHistoryIndex + 1),
-              newHistoryEntry,
-            ]);
-            return prevHistoryIndex + 1;
-          });
+          registerNewHistoryEntry(newBoard, newCount);
           return newCount;
         });
       }
@@ -181,14 +184,14 @@ const MainPage: FC = () => {
     };
     keyPressed && setBoard((prevState) => moveBoard(prevState));
     setKeyPressed(undefined);
-  }, [keyPressed]);
+  }, [keyPressed, dimensions, registerNewHistoryEntry]);
 
   useEffect(() => {
     board.length > 0 && checkIfGameIsOver(board) && setGameOver(true);
   }, [board]);
   useEffect(() => {
-    setCounter(boardCounter - undosCount * 100);
-  }, [boardCounter, undosCount]);
+    setCounter(boardCounter - undosCount * 100 - abilitiesUsedCount);
+  }, [boardCounter, undosCount, abilitiesUsedCount]);
 
   return (
     <Grid2
@@ -261,7 +264,11 @@ const MainPage: FC = () => {
         >
           <UndoIcon sx={{ color: "#454545" }} />
         </Button>
-        <AbilitiesBox boardState={[board, setBoard]} />
+        <AbilitiesBox
+          boardState={[board, setBoard]}
+          registerNewHistoryEntry={registerNewHistoryEntry}
+          setAbilitiesUsedCount={setAbilitiesUsedCount}
+        />
         <Button>MORE</Button>
       </Grid2>
     </Grid2>
